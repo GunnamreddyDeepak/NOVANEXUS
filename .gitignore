@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Runtime files
+offline_queue.json
+*.pid
+
+# Generated evidence
+evidence/
+backend/evidence/
+edge/evidence/
+
+# Generated outputs
+outputs/
+runs/
+
+# Large model files
+*.pt
+*.onnx
+*.engine
+
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+
+# Secrets
+*.pem
+*.key
