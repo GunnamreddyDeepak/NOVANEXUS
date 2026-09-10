@@ -1,0 +1,4 @@
+-r base.txt
+pandas==2.3.2
+geopandas==1.1.4
+shapely==2.1.1
