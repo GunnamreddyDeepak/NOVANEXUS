@@ -1,4 +1,4 @@
 -r base.txt
 ultralytics==8.4.142
 opencv-python==4.14.0.94
-numpy<2.3
+numpy==2.2.6
