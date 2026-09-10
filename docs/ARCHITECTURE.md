@@ -1,563 +1,238 @@
- # BUSSENSE V2 — System Architecture
+# BUSSENSE V2 — System Architecture
 
 ## 1. Project Identity
 
-Project: BUSSENSE V2
+BUSSENSE V2 is an AI-powered mobile urban intelligence platform using public transport fleets as distributed mobile sensing units.
 
-Problem Statement:
-AI-Powered Mobile Urban Intelligence Platform Using Public Transport Fleet
+The system converts local camera/sensor observations into structured urban events and aggregates them centrally.
 
-Core Objective:
-Transform public buses into mobile urban sensing units by processing camera data at the edge and sending meaningful urban events to a centralized intelligence platform.
+## 2. Non-Negotiable Principle
 
----
+> **Process video locally. Send intelligence centrally.**
 
-## 2. Core Architectural Principle
+Continuous raw-video upload is not part of the MVP.
 
-BUSSENSE is an event-driven edge-to-cloud urban intelligence system.
+## 3. End-to-End Flow
 
-The fundamental data flow is:
+```text
+Bus Camera / Sensors
+        ↓
+Edge AI
+        ↓
+Detection + Tracking
+        ↓
+Event Intelligence
+        ↓
+Canonical Urban Event
+        ↓
+GPS + Evidence Reference
+        ↓
+Persistent Local Buffer
+        ↓
+Edge Gateway
+        ↓
+Central API
+        ↓
+Event Store
+        ↓
+Fusion + Analytics
+        ↓
+GIS / Control Tower
+        ↓
+Authority Decision Support
+```
 
-Camera
-→ Edge AI
-→ Event Intelligence
-→ Edge Gateway
-→ Central API
-→ Event Store
-→ Fusion
-→ Analytics
-→ GIS Control Tower
-→ Authority Decision
+## 4. Edge AI
 
-The system must minimize unnecessary bandwidth usage by processing camera data at the edge and transmitting event metadata and relevant evidence instead of continuously uploading raw video.
+Edge AI owns:
 
----
+- camera/frame ingestion
+- model inference
+- vehicle detection/tracking
+- road-damage detection
+- other implemented detection capabilities
+- model execution and performance
 
-## 3. High-Level Architecture
+AI output is a candidate observation, not automatically a city-level confirmation.
 
-                    PUBLIC BUS FLEET
+## 5. Event Intelligence
 
-        ┌─────────────┬─────────────┬─────────────┐
-        │             │             │
-      BUS-101       BUS-104       BUS-108
-        │             │             │
-        ↓             ↓             ↓
-     EDGE AI        EDGE AI        EDGE AI
-        │             │             │
-        └─────────────┬─────────────┘
-                      ↓
-                EDGE GATEWAY
-             ┌────────┼────────┐
-             │        │        │
-            GPS    Evidence  Connectivity
-                      │        │
-                      └── Offline Buffer
-                      ↓
-                 CENTRAL API
-                      ↓
-                EVENT STORE
-                      ↓
-                FUSION ENGINE
-                      ↓
-               ANALYTICS ENGINE
-                      ↓
-                GIS CONTROL TOWER
-                      ↓
-                  AUTHORITY
-
----
-
-## 4. Edge AI Layer
-
-The Edge AI layer processes camera streams locally on the bus.
+Event Intelligence converts detections into the canonical BUSSENSE Event.
 
 Responsibilities:
 
-- Vehicle detection
-- Vehicle classification
-- Vehicle tracking
-- Road damage detection
-- Traffic density estimation
-- Waterlogging detection
-- Infrastructure deficiency detection
-- Pedestrian risk detection
-- Incident-related vehicle tracking
-- Number plate recognition where implemented
-
-The edge layer must avoid sending continuous raw camera streams to the central platform.
-
-AI output should first become a candidate detection.
-
-AI detection alone does not automatically mean that an urban event is confirmed.
-
----
-
-## 5. Event Intelligence Layer
-
-The Event Intelligence layer converts AI detections into standardized BUSSENSE events.
-
-Responsibilities:
-
-- Validate detections
-- Apply temporal confirmation
-- Calculate confidence
-- Estimate severity
-- Attach GPS coordinates
-- Attach timestamp
-- Attach bus/device identity
-- Attach relevant evidence
-- Assign event status
-- Prepare events for transmission
-
-Principle:
-
-AI detects.
-Event Intelligence validates.
-Fusion correlates.
-Rules determine system-level decisions.
-Authority makes the final operational decision.
-
----
+- temporal/multi-frame validation
+- confidence calculation
+- severity estimation
+- event classification
+- time attachment
+- evidence selection
+- event ID creation
+- consume location information provided by the Gateway/LocationProvider
 
 ## 6. Edge Gateway
 
-The Edge Gateway is the communication and device-management layer running on the bus.
+The Gateway is a true boundary between the bus and Central Platform.
 
 Responsibilities:
 
-- Receive validated events
-- Obtain GPS information
-- Manage evidence files
-- Maintain local event queue
-- Detect network availability
-- Transmit events when connectivity is available
-- Store events locally during network failure
-- Retry synchronization after connectivity restoration
-- Maintain device/bus identity
+- receive validated events
+- attach/verify device context and location
+- persist events while offline
+- retry synchronization
+- maintain delivery state
+- manage evidence transfer
+- report device health
 
-The Edge Gateway must support intermittent connectivity.
+The Gateway must not know or manipulate central database internals.
 
----
+## 7. Offline-First Requirement
 
-## 7. Offline Operation
+A network failure must not destroy an event.
 
-BUSSENSE must continue generating and storing events when the network is unavailable.
+```text
+EVENT
+  ↓
+Persistent Local Queue
+  ↓
+Network available?
+ ┌───────────────┐
+ YES             NO
+ ↓                ↓
+Upload          Keep queued
+ ↓                ↓
+ACK              Retry later
+```
 
-Expected flow:
+Retries preserve the original event ID and observation timestamp.
 
-Event Generated
-→ Network Available?
-→ YES → Send to Central API
+## 8. Central Platform
 
-Event Generated
-→ Network Available?
-→ NO → Store Locally
-→ Network Restored
-→ Synchronize Pending Events
+The Central Backend owns:
 
-Offline events must retain:
+- API validation
+- device/bus registry
+- event persistence
+- idempotent ingestion
+- operational status
+- evidence references
+- API access for frontend
+- orchestration of Fusion/Analytics
 
-- event_id
-- event type
-- bus/device identity
-- timestamp
-- GPS
+## 9. Storage Strategy
+
+Development may use SQLite when it improves setup speed.
+
+The target spatial architecture is PostgreSQL + PostGIS for deployment-scale spatial operations.
+
+Application code should use a storage boundary so the database implementation can evolve without changing the Event/API contract.
+
+## 10. Fusion
+
+Fusion converts independent observations into higher-confidence urban conditions.
+
+It considers:
+
+- classification
+- spatial proximity
+- temporal proximity
+- bus independence
 - confidence
-- severity
-- evidence reference
-- delivery status
+- GPS quality where available
 
----
+Repeated detections from one bus do not count as independent multi-bus evidence.
 
-## 8. Central API Layer
+## 11. Analytics
 
-The Central API provides communication between buses and the central platform.
+Analytics derives actionable information such as:
 
-Primary responsibilities:
+- vehicle density
+- congestion hotspots
+- road damage hotspots
+- road health
+- repeated hazards
+- route delay indicators
 
-- Receive events
-- Validate event schema
-- Register and monitor buses
-- Provide event data to frontend
-- Provide fusion data
-- Provide analytics data
-- Manage evidence references
-- Support authenticated communication
+Analytics must distinguish raw observations from derived intelligence.
 
-API versioning:
+## 12. GIS Control Tower
 
-/api/v1/
+The React frontend consumes Backend APIs only.
 
-The API contract must remain stable unless an architecture-level change is approved.
+It should visualize:
 
----
+- bus status/location
+- event locations
+- event details/evidence
+- fused urban conditions
+- congestion
+- road health
+- analytics
 
-## 9. Event Store
+## 13. Incident Intelligence Boundary
 
-The central platform stores structured urban events.
+Incident capabilities may include tracking, candidate plate OCR, time, GPS and evidence.
 
-Target V2 database architecture:
+Use terms such as `SUSPECTED_INCIDENT` and `POTENTIAL_HIGH_RISK_SITUATION`.
 
-PostgreSQL
-+
-PostGIS
+Do not claim legal responsibility or facial-recognition capability unless separately and legitimately implemented.
 
-PostGIS is used for spatial operations such as:
+## 14. Security
 
-- Nearby event detection
-- Spatial clustering
-- Road-segment association
-- Repeated hazard identification
-- Bus trajectory analysis
-- Geographic analytics
+Deployment architecture requires:
 
-SQLite may be used temporarily during development, but it is not the target final architecture.
+- HTTPS/TLS
+- device identity
+- authentication/authorization
+- input validation
+- protected evidence access
+- secret management
 
----
+Development shortcuts must not be represented as production security.
 
-## 10. Fusion Engine
+## 15. Modularity
 
-The Fusion Engine correlates observations from multiple buses.
-
-A multi-bus confirmation should consider:
-
-- Event type
-- Spatial proximity
-- Time window
-- Different bus identities
-- Detection confidence
-- Observation consistency
-
-Example:
-
-BUS-101 detects pothole
-+
-BUS-104 detects pothole at the same location
-+
-BUS-108 detects pothole at the same location
-
-↓
-
-MULTI-BUS CONFIRMED EVENT
-
-The Fusion Engine must distinguish repeated observations from the same bus from independent observations from multiple buses.
-
----
-
-## 11. Analytics Engine
-
-The Analytics Engine converts individual events into urban-level intelligence.
-
-Initial analytics:
-
-- Vehicle density
-- Congestion hotspots
-- Road damage hotspots
-- Repeated road hazards
-- Road health
-- Waterlogging hotspots
-- Infrastructure deficiency concentration
-- Route delay indicators
-
-The analytics layer should prioritize actionable information rather than simply displaying raw event counts.
-
----
-
-## 12. Road Segment Intelligence
-
-BUSSENSE should aggregate events spatially onto road segments where possible.
-
-Example:
-
-Road Segment A
-
-Potholes: 7
-Cracks: 4
-Waterlogging observations: 2
-Repeated detections: 13
-Average severity: HIGH
-
-↓
-
-Road Health: POOR
-
-This provides more useful information to urban authorities than isolated map markers alone.
-
----
-
-## 13. GIS Control Tower
-
-The GIS Control Tower is the primary visualization interface for authorities.
-
-It should provide:
-
-- Bus fleet locations/status
-- Urban event map
-- Hazard locations
-- Congestion heatmap
-- Road health information
-- Multi-bus confirmed events
-- Event details
-- Evidence
-- Analytics
-- Incident information
-
-The GIS interface consumes backend APIs and must not directly access the database.
-
----
-
-## 14. Event Lifecycle
-
-The standard event lifecycle is:
-
-DETECTED
-    ↓
-VALIDATED
-    ↓
-FUSED
-    ↓
-CONFIRMED
-    ↓
-ACKNOWLEDGED
-    ↓
-RESOLVED
-
-Not every event must immediately pass through every state.
-
-The lifecycle represents the progression from machine observation to operational handling.
-
----
-
-## 15. Event Sources
-
-Every event must identify its source.
-
-Allowed source types:
-
-- REAL_EDGE_AI
-- SIMULATED_EDGE
-- HARDWARE_SENSOR
-- TEST_DATA
-
-Simulated or test data must never be represented as real-world sensor observations.
-
----
-
-## 16. Evidence Strategy
-
-BUSSENSE should transmit only relevant evidence associated with an event.
-
-Preferred approach:
-
-Camera
-→ Edge AI
-→ Event detected
-→ Relevant evidence captured
-→ Evidence reference attached to event
-→ Metadata transmitted
-
-Continuous raw video upload is not part of the MVP architecture.
-
----
-
-## 17. Incident Intelligence
-
-Incident intelligence is treated as a suspected event capability.
-
-The system may identify:
-
-- Vehicle tracking
-- Number plate candidate
-- OCR confidence
-- Time
-- GPS
-- Evidence
-
-The system should use terminology such as:
-
-"Suspected Incident"
-
-or
-
-"Potential High-Risk Situation"
-
-The system must not claim to legally determine criminal responsibility or perform facial recognition.
-
----
-
-## 18. Security Principles
-
-V2 must progressively introduce:
-
-- Device identity
-- API authentication
-- HTTPS
-- Input validation
-- Event authorization
-- Secure evidence access
-- No credentials inside source code
-- No secrets committed to Git
-
-Development configuration may be simplified locally, but production-oriented architecture must account for secure communication.
-
----
-
-## 19. Performance Principles
-
-Edge processing should avoid unnecessary inference on every camera frame.
-
-Where appropriate:
-
-Camera FPS
-→ Frame Sampling
-→ AI Detection
-→ Tracking
-→ Event Confirmation
-
-The system should balance:
-
-- Detection accuracy
-- Processing speed
-- Edge hardware capability
-- Power consumption
-- Network bandwidth
-
----
-
-## 20. Modularity
-
-BUSSENSE V2 is a modular system.
-
-Major modules:
-
+```text
 edge/
 gateway/
 backend/
 fusion/
+analytics/
 frontend/
 hardware/
 models/
 tests/
 docs/
+```
 
-Each module must have:
+Modules may be developed independently, but their interfaces are shared system contracts.
 
-- Clear responsibility
-- Defined input
-- Defined output
-- Defined interface
-- Automated or documented tests where practical
+## 16. Team Boundaries
 
----
+- System Architect/Integration: architecture, contracts, integration, QA
+- Edge AI: computer vision and event-generation inputs
+- Backend/Data: API, persistence, validation, device registry
+- Frontend/GIS: Control Tower
+- Fusion/Analytics: correlation and urban intelligence
+- Hardware/Gateway: GPS, connectivity, local queue, device interfaces
 
-## 21. Team Ownership
+## 17. Architecture Change Rule
 
-System Architect / Integration Lead:
-- Architecture
-- Shared contracts
-- Integration
-- Repository management
-- Code review
-- End-to-end testing
-- Final deployment
-- Final SIH demonstration
+Changes to event schema, API, database boundary, communication protocol, fusion semantics, hardware boundary or major AI subsystem require Integration Lead review.
 
-Edge AI:
-- Edge computer vision
-- Detection
-- Tracking
-- Road damage AI
-- Temporal confirmation
+## 18. MVP Boundary
 
-Backend / Data:
-- FastAPI
-- PostgreSQL
-- PostGIS
-- Event storage
-- Authentication
+The MVP must demonstrate a credible end-to-end path:
 
-Frontend / GIS:
-- React
-- GIS
-- Dashboard
-- Event visualization
-- Evidence visualization
+```text
+real/controlled camera input
+→ real Edge AI where implemented
+→ validated event
+→ persistent offline queue
+→ central ingestion
+→ multi-bus fusion
+→ analytics
+→ GIS visualization
+```
 
-Fusion / Analytics:
-- Multi-bus fusion
-- Spatial correlation
-- Temporal correlation
-- Road health
-- Urban analytics
-
-Hardware / Gateway:
-- GPS
-- Camera interface
-- Edge device
-- Connectivity
-- Offline gateway
-
----
-
-## 22. Architecture Change Rule
-
-No team member may independently modify a shared architecture contract.
-
-Changes affecting:
-
-- Event schema
-- API schema
-- Database model
-- Fusion logic
-- Module boundaries
-- Communication protocol
-
-must be discussed with the System Architect before implementation.
-
----
-
-## 23. MVP Boundary
-
-The MVP focuses on:
-
-1. Edge AI
-2. Event generation
-3. GPS-aware events
-4. Offline buffering
-5. Central event platform
-6. Multi-bus fusion
-7. GIS control tower
-8. Traffic and road analytics
-9. Evidence-based suspected incident intelligence
-
-The project should not introduce unnecessary technologies or features that do not improve the core urban intelligence pipeline.
-
----
-
-## 24. Final End-to-End Flow
-
-PUBLIC BUS CAMERA
-        ↓
-EDGE AI
-        ↓
-EVENT INTELLIGENCE
-        ↓
-GPS + EVIDENCE
-        ↓
-EDGE GATEWAY
-        ↓
-ONLINE / OFFLINE BUFFER
-        ↓
-CENTRAL API
-        ↓
-EVENT STORE
-        ↓
-MULTI-BUS FUSION
-        ↓
-URBAN ANALYTICS
-        ↓
-GIS CONTROL TOWER
-        ↓
-AUTHORITY ACTION
-
-This flow defines the BUSSENSE V2 system architecture.
+Features not reliably implementable or testable do not enter the MVP merely to increase feature count.

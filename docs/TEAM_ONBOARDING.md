@@ -1,14 +1,14 @@
-# BUSSENSE-V2 — Team Onboarding
+# BUSSENSE V2 — Team Onboarding
 
-## 1. Purpose
+## 1. One-System Rule
 
-BUSSENSE-V2 is being developed as one integrated system by a six-member team.
+BUSSENSE is one integrated system.
 
-Every member owns one module, but all modules must follow the shared architecture and contracts.
+Each member owns a module, but shared contracts and end-to-end behavior belong to the whole team.
 
-The project must NOT become six independent projects.
+## 2. Master Documents
 
-The master references are:
+Before implementation, read:
 
 - `docs/ARCHITECTURE.md`
 - `docs/EVENT_CONTRACT.md`
@@ -16,61 +16,75 @@ The master references are:
 - `docs/BUS_DEVICE_SPEC.md`
 - `docs/FUSION_SPEC.md`
 - `docs/DEVELOPMENT_RULES.md`
+- `docs/TEAM_SETUP.md`
 
-Read the relevant documents before starting implementation.
+## 3. Team Structure
 
----
+| Member | Role |
+|---|---|
+| Deepak | System Architect + Integration Lead |
+| Rakesh | Edge AI |
+| Rishitha | Backend/Data |
+| Dharmika | Frontend/GIS |
+| Anwitha | Fusion/Analytics |
+| Vyshnavi | Gateway/Hardware |
 
-# 2. Team Structure
+## 4. Shared Contract Rule
 
-| Member | Role | Branch |
-|---|---|---|
-| Deepak | System Architect + Integration Lead | `integration` |
-| Rakesh | Edge AI Engineer | `feature/edge-ai` |
-| Rishitha | Backend + Database Engineer | `feature/backend` |
-| Dharmika | Frontend + GIS Engineer | `feature/frontend` |
-| Anwitha | Fusion + Analytics Engineer | `feature/fusion` |
-| Vyshnavi | Hardware + Edge Gateway Engineer | `feature/hardware` |
+Do not silently change:
 
----
+- event fields/types
+- API endpoints
+- API request/response formats
+- event status/source values
+- fusion semantics
+- module boundaries
 
-# 3. Golden Rule
+Discuss the change with the Integration Lead first.
 
-Do NOT directly modify another member's module without coordination.
-
-Before changing a shared interface, schema, event field, API, or architecture decision:
-
-1. Check the relevant contract.
-2. Discuss the change with the Integration Lead.
-3. Update the relevant documentation if required.
-4. Make the change in a controlled commit.
-5. Test affected modules.
-
-No silent breaking changes are allowed.
-
----
-
-# 4. Repository Workflow
-
-## Main Branch
-
-`main` represents the stable project baseline.
-
-Team members must NOT develop directly on `main`.
-
-## Integration Branch
-
-`integration` is used by the Integration Lead for combining and testing completed module work.
-
-## Feature Branches
-
-Each member works primarily on their assigned feature branch.
-
-Branches:
+## 5. Development Flow
 
 ```text
-feature/edge-ai
-feature/backend
-feature/frontend
-feature/fusion
-feature/hardware
+feature branch
+      ↓
+tests + diff review
+      ↓
+Integration Lead review
+      ↓
+integration
+      ↓
+end-to-end tests
+      ↓
+main
+```
+
+## 6. Golden Integration Principle
+
+The most important test is not whether one module works alone.
+
+It is whether:
+
+```text
+Edge
+→ Event
+→ Offline Queue
+→ Gateway
+→ Backend
+→ Persistence
+→ Fusion
+→ Analytics
+→ GIS
+```
+
+works as one system.
+
+## 7. Honest Capability Rule
+
+Distinguish:
+
+- implemented
+- simulated
+- planned
+- unavailable
+
+Never describe simulated GPS, events or AI as live hardware/production measurements.
