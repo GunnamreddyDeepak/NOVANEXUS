@@ -53,6 +53,7 @@ git switch integration
 git pull origin integration
 git switch -c feature/<your-role>
 git push -u origin feature/<your-role>
+```
 
 ## 5. Python Environment
 
@@ -63,9 +64,6 @@ python --version
 python -m pip --version
 ```
 
-Install the profile for your role:
-
-```powershell
 Install only the dependency profile required for your role:
 
 ```powershell
@@ -83,6 +81,7 @@ python -m pip install -r requirements/gateway.txt
 
 # Testing
 python -m pip install -r requirements/test.txt
+```
 
 Integration/QA environment:
 
