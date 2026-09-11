@@ -1,0 +1,63 @@
+name: BUSSENSE CI
+
+on:
+  pull_request:
+    branches:
+      - integration
+      - main
+  push:
+    branches:
+      - integration
+
+jobs:
+  python-check:
+    name: Python validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install lightweight dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt
+
+      - name: Compile Python modules
+        run: |
+          python -m compileall \
+            backend \
+            edge \
+            fusion \
+            gateway \
+            hardware \
+            analytics \
+            tests
+
+  frontend-check:
+    name: Frontend build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
