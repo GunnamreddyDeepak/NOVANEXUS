@@ -62,3 +62,6 @@ runs/
 # Secrets
 *.pem
 *.key
+
+# Test videos
+data/video/
