@@ -6,6 +6,9 @@ import LiveFleet from './views/LiveFleet'
 import IncidentCentre from './views/IncidentCentre'
 import GISMap from './views/GISMap'
 import EvidenceDetail from './views/EvidenceDetail'
+import TrafficAnalytics from './views/TrafficAnalytics'
+import RoadIntelligence from './views/RoadIntelligence'
+import FleetAnalytics from './views/FleetAnalytics'
 import PlaceholderView from './views/PlaceholderView'
 
 function App() {
@@ -26,6 +29,16 @@ const renderView = () => {
 
   if (activeView === 'map') {
     return <GISMap />
+  }
+
+  if (activeView === 'analytics') {
+    return <TrafficAnalytics />
+  }
+  if (activeView === 'road-intelligence') {
+  return <RoadIntelligence />
+  }
+  if (activeView === 'fleet-analytics') {
+  return <FleetAnalytics />
   }
 
   if (activeView === 'evidence') {

@@ -7,6 +7,8 @@ import {
   AlertTriangle,
   Map,
   BarChart3,
+  Route,
+  Activity,
   FileSearch,
 } from 'lucide-react'
 
@@ -16,6 +18,8 @@ const navigation = [
   { id: 'incidents', label: 'Incident Centre', icon: AlertTriangle },
   { id: 'map', label: 'GIS / Map', icon: Map },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { id: 'road-intelligence', label: 'Road Intelligence', icon: Route },
+  { id: 'fleet-analytics', label: 'Fleet Analytics', icon: Activity },
   { id: 'evidence', label: 'Evidence & Detail', icon: FileSearch },
 ]
 
@@ -32,10 +36,12 @@ function AppShell({ activeView, onNavigate, children }) {
       <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''}`}>
         <div className="brand">
           <div className="brand-mark">B</div>
+
           <div>
             <h1>BUSSENSE</h1>
             <span>Urban Intelligence</span>
           </div>
+
           <button
             className="mobile-close"
             onClick={() => setMobileOpen(false)}
