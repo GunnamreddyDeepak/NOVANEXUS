@@ -1,71 +1,113 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   FileSearch,
   MapPin,
   Bus,
-  Clock3,
   Camera,
   Database,
   ShieldCheck,
+  AlertTriangle,
 } from 'lucide-react'
-
-const events = [
-  {
-    id: 'EVT-2048',
-    type: 'Waterlogging',
-    subType: 'Road Water Accumulation',
-    severity: 'Critical',
-    status: 'Detected',
-    confidence: '94%',
-    bus: 'BUS-1042',
-    device: 'EDGE-1042',
-    location: 'Anna Nagar',
-    latitude: '13.0878',
-    longitude: '80.2081',
-    observed: '4 min ago',
-    source: 'SIMULATED EDGE AI',
-  },
-  {
-    id: 'EVT-2047',
-    type: 'Road Damage',
-    subType: 'Surface Damage',
-    severity: 'Medium',
-    status: 'Validated',
-    confidence: '87%',
-    bus: 'BUS-1021',
-    device: 'EDGE-1021',
-    location: 'Guindy',
-    latitude: '13.0067',
-    longitude: '80.2206',
-    observed: '12 min ago',
-    source: 'SIMULATED EDGE AI',
-  },
-  {
-    id: 'EVT-2046',
-    type: 'Congestion',
-    subType: 'Traffic Build-up',
-    severity: 'Medium',
-    status: 'Detected',
-    confidence: '82%',
-    bus: 'BUS-1098',
-    device: 'EDGE-1098',
-    location: 'T. Nagar',
-    latitude: '13.0418',
-    longitude: '80.2341',
-    observed: '18 min ago',
-    source: 'SIMULATED EDGE AI',
-  },
-]
+import { fetchEvents } from '../api/events'
 
 function EvidenceDetail() {
-  const [selectedId, setSelectedId] = useState(events[0].id)
+  const [events, setEvents] = useState([])
+  const [selectedId, setSelectedId] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadEvents() {
+      try {
+        setLoading(true)
+        setError('')
+
+        const response = await fetchEvents()
+
+        // Support both possible API response shapes:
+        // 1. [...]
+        // 2. { events: [...] }
+        const backendEvents = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.events)
+            ? response.events
+            : []
+
+        const mappedEvents = backendEvents.map((event) => ({
+          id: event.event_id,
+          type:
+            event.sub_type === 'POTHOLE'
+              ? 'Road Damage'
+              : (event.event_type || 'Unknown Event').replaceAll(
+                  '_',
+                  ' '
+                ),
+          subType: event.sub_type || 'Not specified',
+          severity: event.severity || 'UNKNOWN',
+          status: event.status || 'UNKNOWN',
+          confidence:
+            typeof event.confidence === 'number'
+              ? `${event.confidence}%`
+              : 'Unavailable',
+          bus: event.bus_id || 'Unknown',
+          device: event.device_id || 'Unknown',
+          latitude:
+            typeof event.latitude === 'number'
+              ? event.latitude.toFixed(4)
+              : 'Unavailable',
+          longitude:
+            typeof event.longitude === 'number'
+              ? event.longitude.toFixed(4)
+              : 'Unavailable',
+          observed: event.observed_at
+            ? new Date(event.observed_at).toLocaleString()
+            : 'Unavailable',
+          source: event.source_type || 'UNKNOWN',
+          schema: event.schema_version || 'Unknown',
+          evidence: event.evidence || {},
+          metadata: event.metadata || {},
+        }))
+
+        if (mounted) {
+          setEvents(mappedEvents)
+
+          if (mappedEvents.length > 0) {
+            setSelectedId(mappedEvents[0].id)
+          } else {
+            setSelectedId(null)
+          }
+        }
+      } catch (err) {
+        if (mounted) {
+          setEvents([])
+          setSelectedId(null)
+          setError(
+            err?.message || 'Failed to load events from backend'
+          )
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadEvents()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const selectedEvent =
-    events.find((event) => event.id === selectedId) || events[0]
+    events.find((event) => event.id === selectedId) ||
+    events[0] ||
+    null
 
   return (
     <div className="evidence-page">
-
       <div className="page-heading">
         <div>
           <span className="page-label">TRACEABILITY</span>
@@ -79,14 +121,12 @@ function EvidenceDetail() {
         </div>
 
         <span className="simulation-badge">
-          SIMULATED DATA
+          BACKEND DATA
         </span>
       </div>
 
       <div className="evidence-layout">
-
         <section className="panel evidence-events">
-
           <div className="panel-header">
             <div>
               <span className="panel-label">
@@ -100,226 +140,316 @@ function EvidenceDetail() {
           </div>
 
           <div className="evidence-event-list">
+            {loading && (
+              <div className="evidence-empty">
+                <strong>Loading events...</strong>
+              </div>
+            )}
 
-            {events.map((event) => (
-              <button
-                key={event.id}
-                className={`evidence-event-row ${
-                  selectedEvent.id === event.id
-                    ? 'selected'
-                    : ''
-                }`}
-                onClick={() => setSelectedId(event.id)}
-              >
+            {error && !loading && (
+              <div className="evidence-empty">
+                <AlertTriangle size={24} />
 
-                <div
-                  className={`evidence-event-icon ${event.severity.toLowerCase()}`}
+                <strong>Unable to load events</strong>
+
+                <span>{error}</span>
+              </div>
+            )}
+
+            {!loading &&
+              !error &&
+              events.map((event) => (
+                <button
+                  key={event.id}
+                  className={`evidence-event-row ${
+                    selectedEvent?.id === event.id
+                      ? 'selected'
+                      : ''
+                  }`}
+                  onClick={() => setSelectedId(event.id)}
                 >
-                  <FileSearch size={16} />
+                  <div
+                    className={`evidence-event-icon ${event.severity.toLowerCase()}`}
+                  >
+                    <FileSearch size={16} />
+                  </div>
+
+                  <div className="evidence-event-info">
+                    <strong>{event.type}</strong>
+
+                    <span>{event.id}</span>
+
+                    <small>
+                      {event.latitude}, {event.longitude} ·{' '}
+                      {event.observed}
+                    </small>
+                  </div>
+
+                  <span
+                    className={`status-badge ${event.severity.toLowerCase()}`}
+                  >
+                    {event.severity}
+                  </span>
+                </button>
+              ))}
+
+            {!loading &&
+              !error &&
+              events.length === 0 && (
+                <div className="evidence-empty">
+                  <FileSearch size={24} />
+
+                  <strong>No events available</strong>
+
+                  <span>
+                    No events are currently available from the
+                    BUSSENSE backend.
+                  </span>
                 </div>
-
-                <div className="evidence-event-info">
-
-                  <strong>{event.type}</strong>
-
-                  <span>{event.id}</span>
-
-                  <small>
-                    {event.location} · {event.observed}
-                  </small>
-
-                </div>
-
-                <span
-                  className={`status-badge ${event.severity.toLowerCase()}`}
-                >
-                  {event.severity}
-                </span>
-
-              </button>
-            ))}
-
+              )}
           </div>
-
         </section>
 
         <section className="panel evidence-detail-card">
+          {!selectedEvent && !loading && !error ? (
+            <div className="evidence-empty detail-empty">
+              <FileSearch size={28} />
 
-          <div className="panel-header evidence-detail-header">
-
-            <div>
-              <span className="panel-label">
-                EVENT RECORD
-              </span>
-
-              <h4>{selectedEvent.type}</h4>
-
-              <span className="evidence-subtitle">
-                {selectedEvent.id}
-              </span>
-            </div>
-
-            <span
-              className={`status-badge ${selectedEvent.severity.toLowerCase()}`}
-            >
-              {selectedEvent.severity}
-            </span>
-
-          </div>
-
-          <div className="evidence-grid">
-
-            <div className="evidence-section">
-
-              <div className="evidence-section-title">
-                <Database size={16} />
-                Event Information
-              </div>
-
-              <div className="metadata-grid">
-
-                <div>
-                  <span>EVENT TYPE</span>
-                  <strong>{selectedEvent.type}</strong>
-                </div>
-
-                <div>
-                  <span>SUB TYPE</span>
-                  <strong>{selectedEvent.subType}</strong>
-                </div>
-
-                <div>
-                  <span>STATUS</span>
-                  <strong>{selectedEvent.status}</strong>
-                </div>
-
-                <div>
-                  <span>CONFIDENCE</span>
-                  <strong>{selectedEvent.confidence}</strong>
-                </div>
-
-              </div>
-
-            </div>
-
-            <div className="evidence-section">
-
-              <div className="evidence-section-title">
-                <MapPin size={16} />
-                Location
-              </div>
-
-              <div className="metadata-grid">
-
-                <div>
-                  <span>LOCATION</span>
-                  <strong>{selectedEvent.location}</strong>
-                </div>
-
-                <div>
-                  <span>LATITUDE</span>
-                  <strong>{selectedEvent.latitude}</strong>
-                </div>
-
-                <div>
-                  <span>LONGITUDE</span>
-                  <strong>{selectedEvent.longitude}</strong>
-                </div>
-
-                <div>
-                  <span>OBSERVED</span>
-                  <strong>{selectedEvent.observed}</strong>
-                </div>
-
-              </div>
-
-            </div>
-
-            <div className="evidence-section">
-
-              <div className="evidence-section-title">
-                <Bus size={16} />
-                Source & Device
-              </div>
-
-              <div className="metadata-grid">
-
-                <div>
-                  <span>BUS ID</span>
-                  <strong>{selectedEvent.bus}</strong>
-                </div>
-
-                <div>
-                  <span>DEVICE ID</span>
-                  <strong>{selectedEvent.device}</strong>
-                </div>
-
-                <div>
-                  <span>SOURCE TYPE</span>
-                  <strong>{selectedEvent.source}</strong>
-                </div>
-
-                <div>
-                  <span>SCHEMA</span>
-                  <strong>v1</strong>
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          <div className="evidence-preview">
-
-            <div className="evidence-section-title">
-              <Camera size={16} />
-              Evidence Preview
-            </div>
-
-            <div className="evidence-placeholder">
-
-              <Camera size={32} />
-
-              <strong>
-                Simulated Evidence
-              </strong>
+              <strong>No event selected</strong>
 
               <span>
-                Real image or video evidence will be loaded
-                from the backend evidence service.
+                Select an event to inspect its details.
               </span>
-
-              <small>
-                SIMULATED EVIDENCE
-              </small>
-
             </div>
+          ) : (
+            <>
+              {selectedEvent && (
+                <>
+                  <div className="panel-header evidence-detail-header">
+                    <div>
+                      <span className="panel-label">
+                        EVENT RECORD
+                      </span>
 
-          </div>
+                      <h4>{selectedEvent.type}</h4>
 
-          <div className="evidence-source-note">
+                      <span className="evidence-subtitle">
+                        {selectedEvent.id}
+                      </span>
+                    </div>
 
-            <ShieldCheck size={16} />
+                    <span
+                      className={`status-badge ${selectedEvent.severity.toLowerCase()}`}
+                    >
+                      {selectedEvent.severity}
+                    </span>
+                  </div>
 
-            <div>
-              <strong>
-                Traceability
-              </strong>
+                  <div className="evidence-grid">
+                    <div className="evidence-section">
+                      <div className="evidence-section-title">
+                        <Database size={16} />
+                        Event Information
+                      </div>
 
-              <p>
-                This record keeps the event, bus, device,
-                location, source and evidence relationship
-                visible for operational verification.
-              </p>
-            </div>
+                      <div className="metadata-grid">
+                        <div>
+                          <span>EVENT TYPE</span>
 
-          </div>
+                          <strong>
+                            {selectedEvent.type}
+                          </strong>
+                        </div>
 
+                        <div>
+                          <span>SUB TYPE</span>
+
+                          <strong>
+                            {selectedEvent.subType}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>STATUS</span>
+
+                          <strong>
+                            {selectedEvent.status}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>CONFIDENCE</span>
+
+                          <strong>
+                            {selectedEvent.confidence}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="evidence-section">
+                      <div className="evidence-section-title">
+                        <MapPin size={16} />
+                        Location
+                      </div>
+
+                      <div className="metadata-grid">
+                        <div>
+                          <span>LOCATION</span>
+
+                          <strong>
+                            {selectedEvent.latitude},{' '}
+                            {selectedEvent.longitude}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>LATITUDE</span>
+
+                          <strong>
+                            {selectedEvent.latitude}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>LONGITUDE</span>
+
+                          <strong>
+                            {selectedEvent.longitude}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>OBSERVED</span>
+
+                          <strong>
+                            {selectedEvent.observed}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="evidence-section">
+                      <div className="evidence-section-title">
+                        <Bus size={16} />
+                        Source & Device
+                      </div>
+
+                      <div className="metadata-grid">
+                        <div>
+                          <span>BUS ID</span>
+
+                          <strong>
+                            {selectedEvent.bus}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>DEVICE ID</span>
+
+                          <strong>
+                            {selectedEvent.device}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>SOURCE TYPE</span>
+
+                          <strong>
+                            {selectedEvent.source}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>SCHEMA</span>
+
+                          <strong>
+                            {selectedEvent.schema}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="evidence-preview">
+                    <div className="evidence-section-title">
+                      <Camera size={16} />
+                      Evidence Preview
+                    </div>
+
+                    <div className="evidence-placeholder">
+                      <Camera size={32} />
+
+                      {selectedEvent.evidence?.image_ref ? (
+                        <>
+                          <strong>
+                            Evidence Captured
+                          </strong>
+
+                          <span>
+                            Edge evidence reference is available
+                            for this event.
+                          </span>
+
+                          <small>
+                            {selectedEvent.evidence.image_ref}
+                          </small>
+                        </>
+                      ) : selectedEvent.evidence?.video_ref ? (
+                        <>
+                          <strong>
+                            Video Evidence Available
+                          </strong>
+
+                          <span>
+                            A video evidence reference is
+                            available for this event.
+                          </span>
+
+                          <small>
+                            {selectedEvent.evidence.video_ref}
+                          </small>
+                        </>
+                      ) : (
+                        <>
+                          <strong>
+                            No Evidence Reference
+                          </strong>
+
+                          <span>
+                            No image or video evidence reference
+                            is available for this event.
+                          </span>
+
+                          <small>
+                            BACKEND EVENT DATA
+                          </small>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="evidence-source-note">
+                    <ShieldCheck size={16} />
+
+                    <div>
+                      <strong>
+                        Traceability
+                      </strong>
+
+                      <p>
+                        This record keeps the event, bus, device,
+                        location, source and evidence relationship
+                        visible for operational verification.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </section>
-
       </div>
-
     </div>
   )
 }
