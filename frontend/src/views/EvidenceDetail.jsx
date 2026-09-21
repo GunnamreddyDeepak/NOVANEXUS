@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 import {
   FileSearch,
   MapPin,
@@ -7,24 +7,26 @@ import {
   Database,
   ShieldCheck,
   AlertTriangle,
-} from 'lucide-react'
-import { fetchEvents } from '../api/events'
+} from "lucide-react";
+import { fetchEvents } from "../api/events";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8010";
 
 function EvidenceDetail() {
-  const [events, setEvents] = useState([])
-  const [selectedId, setSelectedId] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [events, setEvents] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    let mounted = true
+    let mounted = true;
 
     async function loadEvents() {
       try {
-        setLoading(true)
-        setError('')
+        setLoading(true);
+        setError("");
 
-        const response = await fetchEvents()
+        const response = await fetchEvents();
 
         // Support both possible API response shapes:
         // 1. [...]
@@ -33,79 +35,90 @@ function EvidenceDetail() {
           ? response
           : Array.isArray(response?.events)
             ? response.events
-            : []
+            : [];
 
         const mappedEvents = backendEvents.map((event) => ({
           id: event.event_id,
           type:
-            event.sub_type === 'POTHOLE'
-              ? 'Road Damage'
-              : (event.event_type || 'Unknown Event').replaceAll(
-                  '_',
-                  ' '
-                ),
-          subType: event.sub_type || 'Not specified',
-          severity: event.severity || 'UNKNOWN',
-          status: event.status || 'UNKNOWN',
+            event.sub_type === "POTHOLE"
+              ? "Road Damage"
+              : (event.event_type || "Unknown Event").replaceAll("_", " "),
+          subType: event.sub_type || "Not specified",
+          severity: event.severity || "UNKNOWN",
+          status: event.status || "UNKNOWN",
           confidence:
-            typeof event.confidence === 'number'
+            typeof event.confidence === "number"
               ? `${event.confidence}%`
-              : 'Unavailable',
-          bus: event.bus_id || 'Unknown',
-          device: event.device_id || 'Unknown',
+              : "Unavailable",
+          bus: event.bus_id || "Unknown",
+          device: event.device_id || "Unknown",
           latitude:
-            typeof event.latitude === 'number'
+            typeof event.latitude === "number"
               ? event.latitude.toFixed(4)
-              : 'Unavailable',
+              : "Unavailable",
           longitude:
-            typeof event.longitude === 'number'
+            typeof event.longitude === "number"
               ? event.longitude.toFixed(4)
-              : 'Unavailable',
+              : "Unavailable",
           observed: event.observed_at
             ? new Date(event.observed_at).toLocaleString()
-            : 'Unavailable',
-          source: event.source_type || 'UNKNOWN',
-          schema: event.schema_version || 'Unknown',
+            : "Unavailable",
+          source: event.source_type || "UNKNOWN",
+          schema: event.schema_version || "Unknown",
           evidence: event.evidence || {},
           metadata: event.metadata || {},
-        }))
+        }));
 
         if (mounted) {
-          setEvents(mappedEvents)
+          setEvents(mappedEvents);
 
-          if (mappedEvents.length > 0) {
-            setSelectedId(mappedEvents[0].id)
+          const firstEvidenceEvent = mappedEvents.find(
+            (event) => event.evidence?.image_ref,
+          );
+
+          if (firstEvidenceEvent) {
+            setSelectedId(firstEvidenceEvent.id);
+          } else if (mappedEvents.length > 0) {
+            setSelectedId(mappedEvents[0].id);
           } else {
-            setSelectedId(null)
+            setSelectedId(null);
           }
         }
       } catch (err) {
         if (mounted) {
-          setEvents([])
-          setSelectedId(null)
-          setError(
-            err?.message || 'Failed to load events from backend'
-          )
+          setEvents([]);
+          setSelectedId(null);
+          setError(err?.message || "Failed to load events from backend");
         }
       } finally {
         if (mounted) {
-          setLoading(false)
+          setLoading(false);
         }
       }
     }
 
-    loadEvents()
+    loadEvents();
 
     return () => {
-      mounted = false
-    }
-  }, [])
+      mounted = false;
+    };
+  }, []);
 
   const selectedEvent =
-    events.find((event) => event.id === selectedId) ||
-    events[0] ||
-    null
+    events.find((event) => event.id === selectedId) || events[0] || null;
+  const getEvidenceUrl = (imageRef) => {
+    if (!imageRef) {
+      return null;
+    }
 
+    const filename = imageRef.replaceAll("\\", "/").split("/").pop();
+
+    if (!filename) {
+      return null;
+    }
+
+    return `${API_BASE_URL}/api/v1/evidence/${encodeURIComponent(filename)}`;
+  };
   return (
     <div className="evidence-page">
       <div className="page-heading">
@@ -115,23 +128,19 @@ function EvidenceDetail() {
           <h3>Evidence & Detail</h3>
 
           <p>
-            Inspect event metadata, source information and supporting
-            evidence for detected events.
+            Inspect event metadata, source information and supporting evidence
+            for detected events.
           </p>
         </div>
 
-        <span className="simulation-badge">
-          BACKEND DATA
-        </span>
+        <span className="simulation-badge">BACKEND DATA</span>
       </div>
 
       <div className="evidence-layout">
         <section className="panel evidence-events">
           <div className="panel-header">
             <div>
-              <span className="panel-label">
-                EVENT RECORDS
-              </span>
+              <span className="panel-label">EVENT RECORDS</span>
 
               <h4>Available Events</h4>
             </div>
@@ -162,9 +171,7 @@ function EvidenceDetail() {
                 <button
                   key={event.id}
                   className={`evidence-event-row ${
-                    selectedEvent?.id === event.id
-                      ? 'selected'
-                      : ''
+                    selectedEvent?.id === event.id ? "selected" : ""
                   }`}
                   onClick={() => setSelectedId(event.id)}
                 >
@@ -180,8 +187,7 @@ function EvidenceDetail() {
                     <span>{event.id}</span>
 
                     <small>
-                      {event.latitude}, {event.longitude} ·{' '}
-                      {event.observed}
+                      {event.latitude}, {event.longitude} · {event.observed}
                     </small>
                   </div>
 
@@ -193,20 +199,17 @@ function EvidenceDetail() {
                 </button>
               ))}
 
-            {!loading &&
-              !error &&
-              events.length === 0 && (
-                <div className="evidence-empty">
-                  <FileSearch size={24} />
+            {!loading && !error && events.length === 0 && (
+              <div className="evidence-empty">
+                <FileSearch size={24} />
 
-                  <strong>No events available</strong>
+                <strong>No events available</strong>
 
-                  <span>
-                    No events are currently available from the
-                    BUSSENSE backend.
-                  </span>
-                </div>
-              )}
+                <span>
+                  No events are currently available from the BUSSENSE backend.
+                </span>
+              </div>
+            )}
           </div>
         </section>
 
@@ -217,9 +220,7 @@ function EvidenceDetail() {
 
               <strong>No event selected</strong>
 
-              <span>
-                Select an event to inspect its details.
-              </span>
+              <span>Select an event to inspect its details.</span>
             </div>
           ) : (
             <>
@@ -227,9 +228,7 @@ function EvidenceDetail() {
                 <>
                   <div className="panel-header evidence-detail-header">
                     <div>
-                      <span className="panel-label">
-                        EVENT RECORD
-                      </span>
+                      <span className="panel-label">EVENT RECORD</span>
 
                       <h4>{selectedEvent.type}</h4>
 
@@ -256,33 +255,25 @@ function EvidenceDetail() {
                         <div>
                           <span>EVENT TYPE</span>
 
-                          <strong>
-                            {selectedEvent.type}
-                          </strong>
+                          <strong>{selectedEvent.type}</strong>
                         </div>
 
                         <div>
                           <span>SUB TYPE</span>
 
-                          <strong>
-                            {selectedEvent.subType}
-                          </strong>
+                          <strong>{selectedEvent.subType}</strong>
                         </div>
 
                         <div>
                           <span>STATUS</span>
 
-                          <strong>
-                            {selectedEvent.status}
-                          </strong>
+                          <strong>{selectedEvent.status}</strong>
                         </div>
 
                         <div>
                           <span>CONFIDENCE</span>
 
-                          <strong>
-                            {selectedEvent.confidence}
-                          </strong>
+                          <strong>{selectedEvent.confidence}</strong>
                         </div>
                       </div>
                     </div>
@@ -298,33 +289,26 @@ function EvidenceDetail() {
                           <span>LOCATION</span>
 
                           <strong>
-                            {selectedEvent.latitude},{' '}
-                            {selectedEvent.longitude}
+                            {selectedEvent.latitude}, {selectedEvent.longitude}
                           </strong>
                         </div>
 
                         <div>
                           <span>LATITUDE</span>
 
-                          <strong>
-                            {selectedEvent.latitude}
-                          </strong>
+                          <strong>{selectedEvent.latitude}</strong>
                         </div>
 
                         <div>
                           <span>LONGITUDE</span>
 
-                          <strong>
-                            {selectedEvent.longitude}
-                          </strong>
+                          <strong>{selectedEvent.longitude}</strong>
                         </div>
 
                         <div>
                           <span>OBSERVED</span>
 
-                          <strong>
-                            {selectedEvent.observed}
-                          </strong>
+                          <strong>{selectedEvent.observed}</strong>
                         </div>
                       </div>
                     </div>
@@ -339,33 +323,25 @@ function EvidenceDetail() {
                         <div>
                           <span>BUS ID</span>
 
-                          <strong>
-                            {selectedEvent.bus}
-                          </strong>
+                          <strong>{selectedEvent.bus}</strong>
                         </div>
 
                         <div>
                           <span>DEVICE ID</span>
 
-                          <strong>
-                            {selectedEvent.device}
-                          </strong>
+                          <strong>{selectedEvent.device}</strong>
                         </div>
 
                         <div>
                           <span>SOURCE TYPE</span>
 
-                          <strong>
-                            {selectedEvent.source}
-                          </strong>
+                          <strong>{selectedEvent.source}</strong>
                         </div>
 
                         <div>
                           <span>SCHEMA</span>
 
-                          <strong>
-                            {selectedEvent.schema}
-                          </strong>
+                          <strong>{selectedEvent.schema}</strong>
                         </div>
                       </div>
                     </div>
@@ -382,48 +358,51 @@ function EvidenceDetail() {
 
                       {selectedEvent.evidence?.image_ref ? (
                         <>
-                          <strong>
-                            Evidence Captured
-                          </strong>
+                          <strong>Evidence Captured</strong>
 
                           <span>
-                            Edge evidence reference is available
-                            for this event.
+                            Actual evidence image captured by Edge AI.
                           </span>
 
-                          <small>
-                            {selectedEvent.evidence.image_ref}
-                          </small>
+                          <img
+                            src={getEvidenceUrl(
+                              selectedEvent.evidence.image_ref,
+                            )}
+                            alt={`Evidence for ${selectedEvent.id}`}
+                            style={{
+                              width: "100%",
+                              maxWidth: "720px",
+                              maxHeight: "420px",
+                              objectFit: "contain",
+                              borderRadius: "10px",
+                              marginTop: "12px",
+                              border: "1px solid #dbe3ec",
+                            }}
+                          />
+
+                          <small>{selectedEvent.evidence.image_ref}</small>
                         </>
                       ) : selectedEvent.evidence?.video_ref ? (
                         <>
-                          <strong>
-                            Video Evidence Available
-                          </strong>
+                          <strong>Video Evidence Available</strong>
 
                           <span>
-                            A video evidence reference is
-                            available for this event.
+                            A video evidence reference is available for this
+                            event.
                           </span>
 
-                          <small>
-                            {selectedEvent.evidence.video_ref}
-                          </small>
+                          <small>{selectedEvent.evidence.video_ref}</small>
                         </>
                       ) : (
                         <>
-                          <strong>
-                            No Evidence Reference
-                          </strong>
+                          <strong>No Evidence Reference</strong>
 
                           <span>
-                            No image or video evidence reference
-                            is available for this event.
+                            No image or video evidence reference is available
+                            for this event.
                           </span>
 
-                          <small>
-                            BACKEND EVENT DATA
-                          </small>
+                          <small>BACKEND EVENT DATA</small>
                         </>
                       )}
                     </div>
@@ -433,14 +412,12 @@ function EvidenceDetail() {
                     <ShieldCheck size={16} />
 
                     <div>
-                      <strong>
-                        Traceability
-                      </strong>
+                      <strong>Traceability</strong>
 
                       <p>
-                        This record keeps the event, bus, device,
-                        location, source and evidence relationship
-                        visible for operational verification.
+                        This record keeps the event, bus, device, location,
+                        source and evidence relationship visible for operational
+                        verification.
                       </p>
                     </div>
                   </div>
@@ -451,7 +428,7 @@ function EvidenceDetail() {
         </section>
       </div>
     </div>
-  )
+  );
 }
 
-export default EvidenceDetail
+export default EvidenceDetail;
